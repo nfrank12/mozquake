@@ -1,0 +1,45 @@
+#figuring out which maps I've played the most
+w = table(odtdata$Map)
+t=as.data.frame(w)
+maps_greater_5 = subset(t, Freq > 5)
+maps_grtr_5 = maps_greater_5[,1]
+maps_greater_10 = subset(t, Freq > 10)
+maps_greater_15 = subset(t, Freq > 15)
+maps_greater_20 = subset(t, Freq > 20)
+
+win_percent = NA
+i = 0
+while (i < nrow(maps_greater_15)) {i = i + 1;
+  win_percent[i] = (nrow(subset(odtdata, Map %in% maps_greater_15[i,1] & win == 1)))/(nrow(subset(odtdata, Map %in% maps_greater_15[i,1])))
+}
+win_percent = t(win_percent)
+maps_grtr_15 = t(maps_grtr_15)
+
+win_perc_map = data.frame(maps_grtr_15, win_percent)
+
+most_importantMaps_odt = subset(odtdata, Map %in% maps_greater_20[,1])
+importantMaps_odt = subset(odtdata, Map %in% maps_greater_15[,1])
+kind_of_importantMaps_odt = subset(odtdata, Map %in% maps_greater_10[,1])
+semi_importantMaps_odt = subset(odtdata, Map %in% maps_greater_5[,1])
+
+#showing plot distribution of minutes on each map (be sure to pick which maps are interesting)
+ggplot(aes(x = minutes.elapsed), data = most_importantMaps_odt) +
+  scale_x_continuous(limits=c(2,10), breaks=c(2,4,6,8,10)) +
+  scale_y_continuous(limits=c(0,15), breaks=c(0,3,6,9,12,15)) +
+  geom_histogram(binwidth = 1, color = 'orange') +
+  facet_wrap(~Map)
+
+#showing comparison of minutes.elapsed and num_players
+ggplot(aes(x = minutes.elapsed, y = num_players), data = importantMaps_odt) +
+  xlim(0, 15) +
+  ylim(0, 32) +
+  geom_point(alpha = 1, position = position_jitter(h = 0), color = 'orange') +
+  facet_wrap(~Map)
+
+#showing LG accuracy as a function of ELO of all maps with all players
+ggplot(aes(x = ELO, y = LG.acc), data = quakedata) +
+  xlim(100, 3000) +
+  ylim(10,90) +
+  geom_point(alpha = 1, position = position_jitter(h = 0), color = 'orange') +
+  facet_wrap(~Map)
+

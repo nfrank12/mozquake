@@ -1,0 +1,223 @@
+#reading Mozenda scraped Quake data from QLstats.net
+```{r}
+library(tidyr)
+library(tibble)
+quakedata <- read.csv("6_25_thru_5_09.csv")
+
+#get rid of unneeded and replicated columns
+quakedata$game <- NULL
+quakedata$ItemID <- NULL
+quakedata$view.game <- NULL
+quakedata$Glicko.Change <- NULL
+quakedata$weapon.info <- NULL
+quakedata$game.capture <- NULL
+quakedata$game.field <- NULL
+#quakedata$UnknownHeader <- NULL
+
+#chunking data together 
+name_column = 3
+weapon_start_column = 12
+rows_to_move = which(quakedata[,name_column+1] %in% "") #found which rows have blank chunks
+
+findin_em = NA
+i = 1
+while (i < length(rows_to_move)) {i <- i+1;findin_em[i] = rows_to_move[i+1] - rows_to_move[i];}
+
+the_indices_to_move = which(findin_em != 1)
+
+the_indices_to_move = append(the_indices_to_move, length(rows_to_move))
+
+chunks = length(the_indices_to_move)
+
+num_players = NA
+j = 0
+while (j < (chunks)) {j <- j + 1;
+  if (j == 1) {
+    Indexstart = the_indices_to_move[1];
+    Rowstart1 = 1;
+    Rowstart2 = rows_to_move[1]-1;
+    Rowstart3 = rows_to_move[1];
+    Rowstart4 = rows_to_move[Indexstart];
+    num_players[j] = Rowstart3 - Rowstart1;
+  } else {
+    Index1 = the_indices_to_move[j-1];
+    Index2 = the_indices_to_move[j-1]+1;
+    Index3 = the_indices_to_move[j];
+    Row1 = rows_to_move[Index1]+1;
+    Row2 = rows_to_move[Index2]-1;
+    Row3 = rows_to_move[Index2];
+    Row4 = rows_to_move[Index3];
+    num_players[j+1] = Row3 - Row1;
+  }
+}
+
+num_players <- num_players[!is.na(num_players)]
+
+#finds chunks of data and moves up the weapon statistics to align with game data; NOTE: Had to treat first chunk slightly different, hence starting j at -1 and if j == 0.
+j = -1
+while (j < (chunks-1)) {j <- j + 1;
+  if (j == 0) {
+    Indexstart = the_indices_to_move[1];
+    Rowstart1 = 1;
+    Rowstart2 = rows_to_move[1]-1;
+    Rowstart3 = rows_to_move[1];
+    Rowstart4 = rows_to_move[Indexstart];
+    checks = Rowstart2-Rowstart1;
+    i = -1
+    while (i < checks) {i = i + 1;
+      matching = which(quakedata[(Rowstart3:Rowstart4),weapon_start_column] %in% quakedata[c(Rowstart1+i),name_column]);
+      quakedata[Rowstart1+i,c(weapon_start_column:(ncol(quakedata)))]=quakedata[c(Rowstart2 + matching),c(weapon_start_column:(ncol(quakedata)))]}
+    } else {
+    Index1 = the_indices_to_move[j];
+    Index2 = the_indices_to_move[j]+1;
+    Index3 = the_indices_to_move[j+1];
+    Row1 = rows_to_move[Index1]+1;
+    Row2 = rows_to_move[Index2]-1;
+    Row3 = rows_to_move[Index2];
+    Row4 = rows_to_move[Index3];
+    checks = Row2-Row1;
+    i = -1
+    while (i < checks) {i = i + 1;
+      matching = which(quakedata[(Row3:Row4),weapon_start_column] %in% quakedata[c(Row1+i),name_column])
+      quakedata[Row1+i,c(weapon_start_column:(ncol(quakedata)))]=quakedata[c(Row2 + matching),c(weapon_start_column:(ncol(quakedata)))]}
+    }
+} 
+
+#finds rows of data that were moved and deletes them (comes in backwards)
+j = chunks 
+while (j >= 0) {j <- j - 1;
+Index2 = the_indices_to_move[j]+1;
+Index3 = the_indices_to_move[j+1];
+Row3 = rows_to_move[Index2];
+Row4 = rows_to_move[Index3];
+quakedata <- quakedata[-c(Row3:Row4),]
+}
+#manual delete of first chunk
+quakedata <- quakedata[-c(Rowstart3:Rowstart4),]
+
+#(late, i know) but removing X2 column
+quakedata$X2 <- NULL
+
+
+#separating out the weapon data columns
+quakedata <- separate(quakedata, GT, c("GT.kills", "GTInfo2", "GT.shots.fired"), sep="/")
+quakedata <- separate(quakedata, GTInfo2, c("GT.acc", "GT.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, MG, c("MG.kills", "MGInfo2", "MG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, MGInfo2, c("MG.acc", "MG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, SG, c("SG.kills", "SGInfo2", "SG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, SGInfo2, c("SG.acc", "SG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, GL, c("GL.kills", "GLInfo2", " GL.shots.fired"), sep="/")
+quakedata <- separate(quakedata, GLInfo2, c("GL.acc", "GL.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, RL, c("RL.kills", "RLInfo2", "RL.shots.fired"), sep="/")
+quakedata <- separate(quakedata, RLInfo2, c("RL.acc", "RL.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, LG, c("LG.kills", "LGInfo2", "LG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, LGInfo2, c("LG.acc", "LG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, RG, c("RG.kills", "RGInfo2", "RG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, RGInfo2, c("RG.acc", "RG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, PG, c("PG.kills", "PGInfo2", "PG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, PGInfo2, c("PG.acc", "PG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, HMG, c("HMG.kills", "HMGInfo2", "HMG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, HMGInfo2, c("HMG.acc", "HMG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, BFG, c("BFG.kills", "BFGInfo2", "BFG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, BFGInfo2, c("BFG.acc", "BFG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, CG, c("CG.kills", "CGInfo2", "CG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, CGInfo2, c("CG.acc", "CG.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, PM, c("PM.kills", "PMInfo2", "PM.shots.fired"), sep="/")
+quakedata <- separate(quakedata, PMInfo2, c("PM.acc", "PM.shots.hit"), sep="\n\n")
+quakedata <- separate(quakedata, NG, c("NG.kills", "NGInfo2", "NG.shots.fired"), sep="/")
+quakedata <- separate(quakedata, NGInfo2, c("NG.acc", "NG.shots.hit"), sep="\n\n")
+
+#getting rid of % signs and converting column to number
+quakedata$GT.acc = gsub("%", " ", paste(quakedata$GT.acc))
+quakedata$GT.acc = as.numeric(as.character(quakedata$GT.acc))
+quakedata$MG.acc = gsub("%", " ", paste(quakedata$MG.acc))
+quakedata$MG.acc = as.numeric(as.character(quakedata$MG.acc))
+quakedata$SG.acc = gsub("%", " ", paste(quakedata$SG.acc))
+quakedata$SG.acc = as.numeric(as.character(quakedata$SG.acc))
+quakedata$GL.acc = gsub("%", " ", paste(quakedata$GL.acc))
+quakedata$GL.acc = as.numeric(as.character(quakedata$GL.acc))
+quakedata$RL.acc = gsub("%", " ", paste(quakedata$RL.acc))
+quakedata$RL.acc = as.numeric(as.character(quakedata$RL.acc))
+quakedata$LG.acc = gsub("%", " ", paste(quakedata$LG.acc))
+quakedata$LG.acc = as.numeric(as.character(quakedata$LG.acc))
+quakedata$RG.acc = gsub("%", " ", paste(quakedata$RG.acc))
+quakedata$RG.acc = as.numeric(as.character(quakedata$RG.acc))
+quakedata$PG.acc = gsub("%", " ", paste(quakedata$PG.acc))
+quakedata$PG.acc = as.numeric(as.character(quakedata$PG.acc))
+quakedata$HMG.acc = gsub("%", " ", paste(quakedata$HMG.acc))
+quakedata$HMG.acc = as.numeric(as.character(quakedata$HMG.acc))
+quakedata$CG.acc = gsub("%", " ", paste(quakedata$CG.acc))
+quakedata$CG.acc = as.numeric(as.character(quakedata$CG.acc))
+quakedata$BFG.acc = gsub("%", " ", paste(quakedata$BFG.acc))
+quakedata$BFG.acc = as.numeric(as.character(quakedata$BFG.acc))
+quakedata$NG.acc = gsub("%", " ", paste(quakedata$NG.acc))
+quakedata$NG.acc = as.numeric(as.character(quakedata$NG.acc))
+quakedata$PM.acc = gsub("%", " ", paste(quakedata$PM.acc))
+quakedata$PM.acc = as.numeric(as.character(quakedata$PM.acc))
+
+#separating out ELO
+quakedata <- separate(quakedata, Old.Glicko, c("ELO", "Irrelevant"), sep= " ")
+quakedata$Irrelevant <- NULL
+
+#separating out time
+quakedata <- separate(quakedata, Time, c("hours", "minutes", "seconds"), sep=":")
+
+#calculating minutes elapsed
+i = 0
+while (i < nrow(quakedata)) {i = i + 1;
+  quakedata$minutes.elapsed[i] = (as.numeric(quakedata[i,4])*60) + (as.numeric(quakedata[i,5])) + (as.numeric(quakedata[i,6])/60)
+} 
+#removing separated time values after having minutes elapsed
+quakedata$hours <- NULL
+quakedata$minutes <- NULL
+quakedata$seconds <- NULL
+
+#moving minutes elapsed column to earlier in the matrix so that new weapons columns will not overwrite where it should be
+col_idx <- grep("minutes.elapsed", names(quakedata))
+quakedata <- quakedata[, c(col_idx, (1:ncol(quakedata))[-col_idx])]
+
+
+#turning all NA's to 0's
+quakedata[is.na(quakedata)] <- 0
+
+#putting zeros in all blank cells
+i = 0
+while (i < ncol(quakedata)) {i = i + 1;
+  quakedata[,i][which(quakedata[,i] == "")] <- 0
+} 
+
+i = weapon_start_column
+while (i < ncol(quakedata)) {i = i + 1;
+  quakedata[,i] <- sapply(quakedata[,i], as.numeric)
+}
+
+
+#write.csv(quakedata,"quakedata.csv")
+#write.table(quakedata,"quakedata.csv", row.names=F,na="NA",append=T, quote= FALSE, sep=",", col.names=F)
+
+odt_data = which(quakedata[4] == "odt") #find all odt games
+odtdata = subset(quakedata[c((odt_data)),]); #create odtdata
+odtdata <- add_column(odtdata, num_players, .after = 3) #add num_players to odtdata
+
+#deleting replicates and rows with 0 Perf
+i = 0
+while (i < nrow(quakedata)) {i = i + 1;
+  replicates = (which(odtdata[,2] == odtdata[i,2])); #find replicates
+  num_replicates = length(replicates); #find number of replicates
+  if (num_replicates == 2) {
+    odtdata <- odtdata[-c(replicates[2]),] #delete if only one replicate
+  } else if (num_replicates > 2) {
+    odtdata <- odtdata[-c(replicates[2:num_replicates]),] #delete if several replicates
+  } 
+}
+
+#delete row where Perf = 0 (especially short games)
+too_short = which(odtdata$Perf == 0)
+num_too_short = length(too_short)
+odtdata <- odtdata[-c(too_short[1:num_too_short]),]
+
+
+#blank = NA
+#odtdata <- add_column(odtdata, blank, .before = 1)
+#write.csv(odtdata,"odtdata.csv", row.names=F)
+write.table(odtdata,"odtdata.csv", row.names=F,na="NA",append=T, quote= FALSE, sep=",", col.names=F)
